@@ -1,0 +1,21 @@
+{
+  "name": "codepipeline-test",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "make build"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "aws-sdk": "^2.715.0",
+    "moment": "latest"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.59",
+    "@types/node": "^14.0.23",
+    "typescript": "^3.9.7"
+  }
+}
