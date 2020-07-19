@@ -70,13 +70,13 @@ export default class AppMeshGrpcService {
     async deploy(): Promise<void> {
         console.info('Deploy Properties', JSON.stringify(this.props));
         await this.lock();
+        await this.deleteUnusedResources();
         await this.createServiceIfMissing();
         const virtualNode = await this.createVirtualNode();
         await this.registerNewTask(virtualNode);
         await this.createTaskSet(virtualNode);
         await this.waitForEcsServices();
         await this.switchTrafficRoute(virtualNode);
-        await this.deleteUnusedResources();
         await this.unlock();
     }
 
