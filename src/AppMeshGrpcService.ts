@@ -133,7 +133,7 @@ export default class AppMeshGrpcService {
                 ],
             },
         };
-        console.info('Creating virtual node', req);
+        console.info('Creating virtual node', JSON.stringify(req));
         const res = await this.appmesh.createVirtualNode(req).promise();
         console.info('Successfully created a new virtual node', JSON.stringify(res.virtualNode));
         return res.virtualNode;
@@ -159,23 +159,15 @@ export default class AppMeshGrpcService {
         delete (taskDefinition.taskDefinitionArn);
         delete (taskDefinition.requiresAttributes);
         delete (taskDefinition.revision);
-        // @ts-ignore
-        const req: RegisterTaskDefinitionRequest = {...taskDefinition};
-        console.info('Registering new task definition', req);
+
+        const req: RegisterTaskDefinitionRequest = {...taskDefinition} as RegisterTaskDefinitionRequest;
+        console.info('Registering new task definition', JSON.stringify(req));
         const {taskDefinition: def} = await this.ecs.registerTaskDefinition(req).promise();
         if (!def) {
-            throw Error('No task definition created');
+            throw Error('Error while registering new task definition');
         }
         console.info('Successfully registered new task definition', JSON.stringify(def));
         return def;
-    }
-
-    private async getTaskDefinition(taskDefArn: string): Promise<TaskDefinition> {
-        const {taskDefinition} = await this.ecs.describeTaskDefinition({taskDefinition: taskDefArn}).promise();
-        if (!taskDefinition?.containerDefinitions) {
-            throw Error('No task definition or container definitions found');
-        }
-        return taskDefinition;
     }
 
     private async createTaskSet(virtualNode: AppMesh.VirtualNodeData, networkConfig: INetworkConfig): Promise<ECS.TaskSet | undefined> {
@@ -186,7 +178,7 @@ export default class AppMeshGrpcService {
         const taskDefArn = await this.getTaskDefArn();
         const cmapService = await this.getCmapService();
 
-        const request: CreateTaskSetRequest = {
+        const req: CreateTaskSetRequest = {
             service: serviceArn,
             cluster: clusterName,
             externalId: `${virtualNodeName}-task-set`,
@@ -203,10 +195,88 @@ export default class AppMeshGrpcService {
             }
         };
 
-        console.info('Creating Task Set', request);
-        const {taskSet} = await this.ecs.createTaskSet(request).promise();
+        console.info('Creating Task Set', JSON.stringify(req));
+        const {taskSet} = await this.ecs.createTaskSet(req).promise();
         console.info('Successfully created Task Set', JSON.stringify(taskSet));
         return taskSet;
+    }
+
+    private async waitForEcsServices(networkConfig: INetworkConfig): Promise<boolean> {
+        const {clusterName} = this.props;
+        const {ecsServiceName} = networkConfig;
+
+        const cmapService = await this.getCmapService();
+
+        const countUnhealthyTasks = async (): Promise<number> => {
+            const {taskArns} = await this.ecs.listTasks({cluster: clusterName, serviceName: ecsServiceName}).promise();
+            if (!taskArns) {
+                throw Error('No task arns found');
+            }
+            const {tasks} = await this.ecs.describeTasks({cluster: clusterName, tasks: taskArns}).promise();
+            console.info('Tasks', tasks?.map(t => {
+                return {taskArn: t.taskArn, taskDefArn: t.taskDefinitionArn, lastStatus: t.lastStatus}
+            }));
+            return tasks?.filter(t => t.lastStatus != 'RUNNING').length || 0;
+        };
+
+        const countUnhealthyInstances = async (): Promise<number> => {
+            const req: GetInstancesHealthStatusRequest = {
+                ServiceId: cmapService.Id as ResourceId,
+            };
+            const {Status: status} = await this.sd.getInstancesHealthStatus(req).promise();
+            console.info('Status', status);
+            return status ? Object.keys(status)?.filter(k => status[k] != 'HEALTHY').length || 0 : 0;
+        };
+
+        while (await countUnhealthyTasks() == 0) {
+            console.info('Waiting for unhealthy tasks');
+            await delay(5000);
+        }
+
+        while (await countUnhealthyTasks() != 0) {
+            console.info('Waiting for all unhealthy tasks to be RUNNING');
+            await delay(5000);
+        }
+
+        while (await countUnhealthyInstances() == 0) {
+            console.info('Waiting for unhealthy instances');
+            await delay(5000);
+        }
+
+        while (await countUnhealthyInstances() != 0) {
+            console.info('Waiting for all unhealthy instances to be HEALTHY');
+            await delay(5000);
+        }
+
+        return true;
+    }
+
+    private async switchTrafficRoute(virtualNode: VirtualNodeData): Promise<AppMesh.RouteData> {
+        const {meshName, virtualRouterName, routeName} = this.props;
+        const {route} = await this.appmesh.describeRoute({meshName, virtualRouterName, routeName}).promise();
+        const action = route?.spec?.grpcRoute?.action;
+        if (!route || !route.spec || !action || !action.weightedTargets) {
+            throw Error('No weighted targets found');
+        }
+        action.weightedTargets = [{virtualNode: virtualNode.virtualNodeName, weight: 1}];
+        const req = {
+            meshName,
+            virtualRouterName,
+            routeName,
+            spec: route.spec
+        };
+        console.info('Switching traffic route', JSON.stringify(req));
+        const {route: rt} = await this.appmesh.updateRoute(req).promise();
+        console.info('Successfully switched traffic route', JSON.stringify(rt));
+        return rt;
+    }
+
+    private async getTaskDefinition(taskDefArn: string): Promise<TaskDefinition> {
+        const {taskDefinition} = await this.ecs.describeTaskDefinition({taskDefinition: taskDefArn}).promise();
+        if (!taskDefinition?.containerDefinitions) {
+            throw Error('No task definition or container definitions found');
+        }
+        return taskDefinition;
     }
 
     private async getServiceArn(): Promise<string> {
@@ -239,73 +309,4 @@ export default class AppMeshGrpcService {
         return cmapService;
     }
 
-    private async waitForEcsServices(networkConfig: INetworkConfig): Promise<boolean> {
-        const {clusterName} = this.props;
-        const {ecsServiceName} = networkConfig;
-
-        const cmapService = await this.getCmapService();
-
-        const countUnhealthyTasks = async (): Promise<number> => {
-            const {taskArns} = await this.ecs.listTasks({cluster: clusterName, serviceName: ecsServiceName}).promise();
-            if (!taskArns) {
-                throw Error('No task arns found');
-            }
-            const {tasks} = await this.ecs.describeTasks({cluster: clusterName, tasks: taskArns}).promise();
-            console.info('Tasks', tasks?.map(t => {
-                return {taskArn: t.taskArn, taskDefArn: t.taskDefinitionArn, lastStatus: t.lastStatus}
-            }));
-            return tasks?.filter(t => t.lastStatus != 'RUNNING').length || 0;
-        };
-
-        const countUnhealthyInstances = async (): Promise<number> => {
-            const req: GetInstancesHealthStatusRequest = {
-                ServiceId: cmapService.Id as ResourceId,
-            };
-            const {Status: status} = await this.sd.getInstancesHealthStatus(req).promise();
-            console.info('Status', status);
-            return status ? Object.keys(status)?.filter(k => status[k] != 'HEALTHY').length || 0 : 0;
-        };
-
-        while (await countUnhealthyTasks() == 0) {
-            console.info('Waiting to seeing unhealthy tasks');
-            await delay(5000);
-        }
-
-        while (await countUnhealthyTasks() != 0) {
-            console.info('Waiting for unhealthy tasks to be RUNNING');
-            await delay(5000);
-        }
-
-        while (await countUnhealthyInstances() == 0) {
-            console.info('Waiting for unhealthy instances');
-            await delay(5000);
-        }
-
-        while (await countUnhealthyInstances() != 0) {
-            console.info('Waiting for unhealthy instances to be HEALTHY');
-            await delay(5000);
-        }
-
-        return true;
-    }
-
-    private async switchTrafficRoute(virtualNode: VirtualNodeData): Promise<AppMesh.RouteData> {
-        const {meshName, virtualRouterName, routeName} = this.props;
-        const {route} = await this.appmesh.describeRoute({meshName, virtualRouterName, routeName}).promise();
-        const action = route?.spec?.grpcRoute?.action;
-        if (!route || !route.spec || !action || !action.weightedTargets) {
-            throw Error('No weighted targets found');
-        }
-        action.weightedTargets = [{virtualNode: virtualNode.virtualNodeName, weight: 1}];
-        const req = {
-            meshName,
-            virtualRouterName,
-            routeName,
-            spec: route.spec
-        };
-        console.info('Switching traffic route', req);
-        const {route: rt} = await this.appmesh.updateRoute(req).promise();
-        console.info('Successfully switched traffic route', JSON.stringify(rt));
-        return rt;
-    }
 }
