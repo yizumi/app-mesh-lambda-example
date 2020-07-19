@@ -24,6 +24,8 @@ export interface IAppMeshGrpcServiceProps {
     namespaceName: string;
     /** Name of the service as registered in CloudMap */
     serviceName: string;
+    /** Name of the service as appears in ECS */
+    ecsServiceName: string;
     /** Port Number to which the gRPC listens */
     port: number;
     /** Name of the virtual router as found in AppMesh */
@@ -36,8 +38,7 @@ export interface IAppMeshGrpcServiceProps {
 
 export interface INetworkConfig {
     subnets: string[];
-    securityGroup: string;
-    ecsServiceName: string;
+    securityGroups: string[];
 }
 
 async function delay(ms: number) {
@@ -68,32 +69,19 @@ export default class AppMeshGrpcService {
     }
 
     private async getNetworkConfiguration(): Promise<INetworkConfig> {
-        const {clusterName, serviceName} = this.props;
-        const {serviceArns} = await this.ecs.listServices({cluster: clusterName}).promise();
-        const ecsServiceName = serviceArns?.find(s => s.indexOf(serviceName) > -1)?.match(/\/(.*)$/)?.[1];
-        if (!ecsServiceName) {
-            throw Error('Not ecs service found');
-        }
-        const {services} = await this.ecs.describeServices({
-            cluster: clusterName,
-            services: [ecsServiceName]
-        }).promise();
-        const taskSet = services?.[0].taskSets?.[0];
-        if (!taskSet) {
-            throw Error('No services/task-sets found');
-        }
-        const subnets: string[] | undefined = taskSet.networkConfiguration?.awsvpcConfiguration?.subnets;
+        const {clusterName, ecsServiceName} = this.props;
+        const {services} = await this.ecs.describeServices({ cluster: clusterName, services: [ecsServiceName] }).promise();
+        const subnets: string[] | undefined = services?.[0].networkConfiguration?.awsvpcConfiguration?.subnets;
         if (!subnets) {
             throw Error('Not subnets found');
         }
-        const securityGroup = taskSet.networkConfiguration?.awsvpcConfiguration?.securityGroups?.[0];
-        if (!securityGroup) {
+        const securityGroups = services?.[0].networkConfiguration?.awsvpcConfiguration?.securityGroups;
+        if (!securityGroups) {
             throw Error('No security groups found');
         }
         const config: INetworkConfig = {
             subnets,
-            securityGroup,
-            ecsServiceName,
+            securityGroups,
         };
         console.info('Detected these configurations', JSON.stringify(config));
         return config;
@@ -188,8 +176,8 @@ export default class AppMeshGrpcService {
             launchType: 'FARGATE',
             networkConfiguration: {
                 awsvpcConfiguration: {
-                    subnets: networkConfig.subnets as StringList,
-                    securityGroups: [networkConfig.securityGroup],
+                    subnets: networkConfig.subnets,
+                    securityGroups: networkConfig.securityGroups,
                     assignPublicIp: 'DISABLED',
                 }
             }
@@ -202,8 +190,7 @@ export default class AppMeshGrpcService {
     }
 
     private async waitForEcsServices(networkConfig: INetworkConfig): Promise<boolean> {
-        const {clusterName} = this.props;
-        const {ecsServiceName} = networkConfig;
+        const {clusterName, ecsServiceName} = this.props;
 
         const cmapService = await this.getCmapService();
 
@@ -280,9 +267,9 @@ export default class AppMeshGrpcService {
     }
 
     private async getServiceArn(): Promise<string> {
-        const {clusterName, serviceName} = this.props;
+        const {clusterName, ecsServiceName} = this.props;
         const {serviceArns} = await this.ecs.listServices({cluster: clusterName}).promise();
-        const serviceArn = serviceArns?.find(s => s.indexOf(serviceName));
+        const serviceArn = serviceArns?.find(s => s.indexOf(ecsServiceName) > -1);
         if (!serviceArn) {
             throw Error('No service Arn found');
         }
