@@ -17,9 +17,6 @@ import AppMesh, {
     VirtualNodeData
 } from "aws-sdk/clients/appmesh";
 import moment from "moment";
-import DynamoDB, {DeleteItemInput, GetItemInput, PutItemInput} from "aws-sdk/clients/dynamodb";
-
-const DYNAMO_TABLE_NAME = 'appmesh-grpc-service-deploy';
 
 export interface IAppMeshGrpcServiceProps {
     /** Unique identifier that indicates this set */
@@ -53,7 +50,6 @@ async function delay(ms: number) {
 }
 
 export default class AppMeshGrpcService {
-    private db: DynamoDB;
     private appmesh: AppMesh;
     private ecs: ECS;
     private sd: ServiceDiscovery;
@@ -63,13 +59,11 @@ export default class AppMeshGrpcService {
         this.appmesh = new AWS.AppMesh();
         this.ecs = new AWS.ECS();
         this.sd = new AWS.ServiceDiscovery();
-        this.db = new AWS.DynamoDB();
         this.props = props;
     }
 
     async deploy(): Promise<void> {
         console.info('Deploy Properties', JSON.stringify(this.props));
-        await this.lock();
         await this.deleteUnusedResources();
         await this.createServiceIfMissing();
         const virtualNode = await this.createVirtualNode();
@@ -77,7 +71,6 @@ export default class AppMeshGrpcService {
         await this.createTaskSet(virtualNode);
         await this.waitForEcsServices();
         await this.switchTrafficRoute(virtualNode);
-        await this.unlock();
     }
 
     private async createServiceIfMissing() {
@@ -411,42 +404,5 @@ export default class AppMeshGrpcService {
             const {virtualNode} = await this.appmesh.deleteVirtualNode({meshName, virtualNodeName}).promise();
             console.info('Successfully removed virtual node', JSON.stringify(virtualNode));
         }
-    }
-
-    private async lock() {
-        const {key} = this.props;
-        const getReq: GetItemInput = {
-            TableName: DYNAMO_TABLE_NAME,
-            Key: { "key": { S: key } },
-        };
-        const { Item:item } = await this.db.getItem(getReq).promise();
-        if (item) {
-            throw Error('Error while locking. Key exists already: ' + JSON.stringify(item));
-        }
-
-        const putReq: PutItemInput = {
-            TableName: DYNAMO_TABLE_NAME,
-            Item: {
-                "key": {S: key},
-                "comment": {S: `Began creating at ${new Date()}`},
-            }
-        };
-
-        console.info('Attempting to lock');
-        const {Attributes:attrs} = await this.db.putItem(putReq).promise();
-        console.info('Successfully locked', JSON.stringify(attrs));
-    }
-
-    private async unlock() {
-        const { key } = this.props;
-
-        const delReq: DeleteItemInput = {
-            TableName: DYNAMO_TABLE_NAME,
-            Key: { 'key': { S: key } }
-        };
-
-        console.info('Attempting to unlock', key);
-        await this.db.deleteItem(delReq).promise();
-        console.info('Successfully unlocked', key);
     }
 }
