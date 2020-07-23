@@ -14,25 +14,6 @@ Following roles are required:
         {
             "Effect": "Allow",
             "Action": [
-                "ecs:CreateService",
-                "ecs:ListTasks",
-                "ecs:DeleteTaskSet",
-                "ecs:DescribeServices",
-                "ecs:UpdateServicePrimaryTaskSet",
-                "ecs:DescribeTasks",
-                "appmesh:ListVirtualNodes"
-            ],
-            "Resource": [
-                "arn:aws:ecs:ap-northeast-1:373656256964:task-set/echo*/echo_server*/*",
-                "arn:aws:ecs:ap-northeast-1:373656256964:task/*",
-                "arn:aws:ecs:ap-northeast-1:373656256964:service/echo_server*",
-                "arn:aws:ecs:ap-northeast-1:373656256964:container-instance/*",
-                "arn:aws:appmesh:ap-northeast-1:373656256964:mesh/echo*"
-            ]
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
                 "appmesh:CreateVirtualNode",
                 "appmesh:UpdateRoute",
                 "appmesh:DescribeRoute",
@@ -50,14 +31,45 @@ Following roles are required:
                 "servicediscovery:ListServices",
                 "codepipeline:PutJobFailureResult",
                 "codepipeline:PutJobSuccessResult",
+                "ecs:RegisterTaskDefinition",
                 "servicediscovery:GetInstancesHealthStatus",
                 "servicediscovery:ListNamespaces",
-                "ecs:RegisterTaskDefinition",
-                "ecs:DescribeTaskDefinition",
                 "ecs:ListTaskDefinitions",
+                "ecs:DescribeTaskDefinition",
                 "ecs:CreateTaskSet"
             ],
             "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": "ecs:ListTasks",
+            "Resource": "*",
+            "Condition": {
+                "ArnEquals": {
+                    "ecs:cluster": "arn:aws:ecs:ap-northeast-1:373656256964:cluster/echo*"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "iam:PassRole",
+                "ecs:CreateService",
+                "ecs:DeleteTaskSet",
+                "ecs:DescribeServices",
+                "ecs:UpdateServicePrimaryTaskSet",
+                "ecs:DescribeTasks",
+                "appmesh:ListVirtualNodes"
+            ],
+            "Resource": [
+                "arn:aws:ecs:ap-northeast-1:373656256964:task-set/echo*/echo_server*/*",
+                "arn:aws:ecs:ap-northeast-1:373656256964:task/*",
+                "arn:aws:ecs:ap-northeast-1:373656256964:container-instance/*",
+                "arn:aws:ecs:ap-northeast-1:373656256964:service/echo*/echo_server",
+                "arn:aws:iam::373656256964:role/echo-qa1-app-TaskIamRole-1AP99XDSOWUMW",
+                "arn:aws:iam::373656256964:role/echo-qa1-app-TaskExecutionIamRole-BL3PANTLKKMS",
+                "arn:aws:appmesh:ap-northeast-1:373656256964:mesh/echo*"
+            ]
         }
     ]
 }
