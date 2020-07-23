@@ -392,9 +392,13 @@ export default class AppMeshGrpcService {
                 service: serviceName,
                 taskSet: ts.taskSetArn as string,
             };
-            console.info('Removing taskSet', req);
-            const {taskSet} = await this.ecs.deleteTaskSet(req).promise();
-            console.info('Successfully removed taskSet', JSON.stringify(taskSet));
+            console.info('Removing taskSet', JSON.stringify(req));
+            try {
+                const {taskSet} = await this.ecs.deleteTaskSet(req).promise();
+                console.info('Successfully removed taskSet', JSON.stringify(taskSet));
+            } catch(e) {
+                console.error('Error while deleting task set', JSON.stringify(e));
+            }
         }
     }
 
