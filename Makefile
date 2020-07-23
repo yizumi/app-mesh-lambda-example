@@ -1,4 +1,6 @@
-build:
+eslint:
+	yarn eslint . --ext .js,.jsx,.ts,.tsx --fix
+build: eslint
 	rm -rf dist/
 	node_modules/.bin/tsc -p tsconfig.json
 	cp -f ./package.json ./dist

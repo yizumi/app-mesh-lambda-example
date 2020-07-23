@@ -239,7 +239,7 @@ export default class AppMeshGrpcService {
             console.info('Tasks', tasks?.reduce((acc:{[Identifier:string]:string}, t) => {
                 const taskId = t.taskArn?.match(/\/(.*)$/)?.[1];
                 const taskDefId = t.taskDefinitionArn?.match(/\/(.*)$/)?.[1];
-                const identifier:string = `${taskId}-${taskDefId}`;
+                const identifier = `${taskId}-${taskDefId}`;
                 acc[identifier] = t.lastStatus as string;
                 return acc;
             }, {}));
@@ -328,38 +328,8 @@ export default class AppMeshGrpcService {
             return false;
         }
 
-        for (const ts of taskSets) {
-            const { taskDefinition } = await this.ecs.describeTaskDefinition({taskDefinition: ts.taskDefinition as string}).promise();
-            const envoy = taskDefinition?.containerDefinitions?.find(cd => cd.name == 'envoy');
-            if (!envoy) {
-                console.warn('Missing envoy container definition');
-                continue;
-            }
-            const env = envoy.environment?.find(e => e.name == 'APPMESH_VIRTUAL_NODE_NAME');
-            if (!env) {
-                console.warn('Missing env with APPMESH_VIRTUAL_NODE_NAME');
-                continue;
-            }
-            if (unusedVirtualNodes.findIndex(n => env.value == `mesh/${meshName}/virtualNode/${n}`) == -1) {
-                console.debug('Aint guilty', JSON.stringify({ env, meshName, unusedVirtualNodes }));
-                continue;
-            }
-            // yea, it's guilty. lets delete this taskSet
-            const req:DeleteTaskSetRequest = {
-                cluster: clusterName,
-                service: serviceName,
-                taskSet: ts.taskSetArn as string,
-            };
-            console.info('Removing taskSet', req);
-            const { taskSet } = await this.ecs.deleteTaskSet(req).promise();
-            console.info('Successfully removed taskSet', JSON.stringify(taskSet));
-        }
-
-        for (const virtualNodeName of unusedVirtualNodes) {
-            console.info('Removing virtual node', virtualNodeName);
-            const { virtualNode } = await this.appmesh.deleteVirtualNode({ meshName, virtualNodeName }).promise();
-            console.info('Successfully removed virtual node', JSON.stringify(virtualNode));
-        }
+        await this.deleteTaskSets(taskSets, unusedVirtualNodes);
+        await this.deleteVirtualNodes(unusedVirtualNodes, meshName);
     }
 
     private async getService(): Promise<ECS.Service> {
@@ -405,6 +375,44 @@ export default class AppMeshGrpcService {
         return cmapService;
     }
 
+    private async deleteTaskSets(taskSets: ECS.TaskSet[], unusedVirtualNodeNames: string[]) {
+        const { meshName, clusterName, serviceName } = this.props;
+        for (const ts of taskSets) {
+            const {taskDefinition} = await this.ecs.describeTaskDefinition({taskDefinition: ts.taskDefinition as string}).promise();
+            const envoy = taskDefinition?.containerDefinitions?.find(cd => cd.name == 'envoy');
+            if (!envoy) {
+                console.warn('Missing envoy container definition');
+                continue;
+            }
+            const env = envoy.environment?.find(e => e.name == 'APPMESH_VIRTUAL_NODE_NAME');
+            if (!env) {
+                console.warn('Missing env with APPMESH_VIRTUAL_NODE_NAME');
+                continue;
+            }
+            if (unusedVirtualNodeNames.findIndex(n => env.value == `mesh/${meshName}/virtualNode/${n}`) == -1) {
+                console.debug('Aint guilty', JSON.stringify({env, meshName, unusedVirtualNodes: unusedVirtualNodeNames}));
+                continue;
+            }
+            // yea, it's guilty. lets delete this taskSet
+            const req: DeleteTaskSetRequest = {
+                cluster: clusterName,
+                service: serviceName,
+                taskSet: ts.taskSetArn as string,
+            };
+            console.info('Removing taskSet', req);
+            const {taskSet} = await this.ecs.deleteTaskSet(req).promise();
+            console.info('Successfully removed taskSet', JSON.stringify(taskSet));
+        }
+    }
+
+    private async deleteVirtualNodes(unusedVirtualNodes: string[], meshName: string) {
+        for (const virtualNodeName of unusedVirtualNodes) {
+            console.info('Removing virtual node', virtualNodeName);
+            const {virtualNode} = await this.appmesh.deleteVirtualNode({meshName, virtualNodeName}).promise();
+            console.info('Successfully removed virtual node', JSON.stringify(virtualNode));
+        }
+    }
+
     private async lock() {
         const {key} = this.props;
         const getReq: GetItemInput = {
@@ -429,7 +437,6 @@ export default class AppMeshGrpcService {
         console.info('Successfully locked', JSON.stringify(attrs));
     }
 
-
     private async unlock() {
         const { key } = this.props;
 
@@ -439,7 +446,7 @@ export default class AppMeshGrpcService {
         };
 
         console.info('Attempting to unlock', key);
-        const { Attributes } = await this.db.deleteItem(delReq).promise();
+        await this.db.deleteItem(delReq).promise();
         console.info('Successfully unlocked', key);
     }
 }
