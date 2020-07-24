@@ -5,7 +5,7 @@ This is a Lambda implementation of AppMesh/ECS/Envoy service deploy
 # Prerequisites
 
 ## Invoking the function from CodePipeline
-This lambda function is meant to be invoked by a AWS CodePipeline job.
+This lambda function is meant to be invoked by a CodePipeline job.
 When calling the function, you need to pass a JSON string containing the information of App Mesh, Cloud Map and ECS Service.
 This needs to conform with the JSON definition defined by `IAppMeshGrpcServiceProps`.
 
