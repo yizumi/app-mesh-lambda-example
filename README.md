@@ -37,15 +37,15 @@ Here's a suggested permission policy that you'd like to apply to the Lambda func
         {
             "Effect": "Allow",
             "Action": [
-                "servicediscovery:ListServices",
-                "codepipeline:PutJobFailureResult",
-                "codepipeline:PutJobSuccessResult",
-                "ecs:RegisterTaskDefinition",
                 "servicediscovery:GetInstancesHealthStatus",
                 "servicediscovery:ListNamespaces",
-                "ecs:ListTaskDefinitions",
+                "servicediscovery:ListServices",
+                "codepipeline:PutJobSuccessResult",
+                "codepipeline:PutJobFailureResult",
+                "ecs:CreateTaskSet",
                 "ecs:DescribeTaskDefinition",
-                "ecs:CreateTaskSet"
+                "ecs:ListTaskDefinitions",
+                "ecs:RegisterTaskDefinition"
             ],
             "Resource": "*"
         },
@@ -53,9 +53,9 @@ Here's a suggested permission policy that you'd like to apply to the Lambda func
             "Effect": "Allow",
             "Action": [
                 "appmesh:CreateVirtualNode",
-                "appmesh:UpdateRoute",
                 "appmesh:DescribeRoute",
-                "appmesh:DeleteVirtualNode"
+                "appmesh:DeleteVirtualNode",
+                "appmesh:UpdateRoute"
             ],
             "Resource": [
                 "arn:aws:appmesh:${AWS_REGION}:${ACCOUNT_ID}:mesh/${MESH_NAME}/virtualRouter/${VIRTUAL_ROUTER_NAME}/route/${ROUTE_NAME}",
@@ -112,7 +112,7 @@ Where:
 
 ## Setting up the CodePipeline Job
 This Lambda function is meant to be invoked by a CodePipeline job.
-When calling the function, you need to pass a JSON string containing the information about the service (e.g. App Mesh resources, Cloud Map and ECS Service resources, etc.) as `UserParameters`. This JSON needs to conform with the schema defined in [`src/IAppMeshGrpcServiceProps`](src/IAppMeshGrpcServiceProps.ts).
+When calling the function, you need to pass a JSON string containing the information about the service (e.g. App Mesh resources, Cloud Map and ECS Service resources, etc.) as `UserParameters`.
 
 Set the CodePipeline job so that `UserParameters` would appear as follows:
 ```
@@ -131,6 +131,12 @@ Set the CodePipeline job so that `UserParameters` would appear as follows:
         }
     }
 }
+```
+
+`UsersParameters` need to contain a string that conforms with the schema defined in [`src/IAppMeshGrpcServiceProps`](src/IAppMeshGrpcServiceProps.ts).
+Here's an example of `UserParameters`:
+```
+{"key":"echo_server:qa1","meshName":"echo-qa1-mesh","clusterName":"echo-qa1","namespaceName":"echo-qa1.local","serviceName":"echo_server","ecsServiceName":"echo_server","taskDefinitionName":"echo-qa1-echo-server","privateSubnets":["subnet-0123456789abcdef0","subnet-0123456789abcdef1"],"securityGroups":["sg-0123456789abcdef0"],"port":8080,"virtualRouterName":"echo-server-router","routeName":"echo-server-route"}
 ```
 For more detailed examples of `IAppMeshGrpcServiceProps`, you can refer to [`RuntimeServices.ts`](src/RuntimeServices.ts).
 
