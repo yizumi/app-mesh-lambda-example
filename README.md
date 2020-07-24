@@ -18,7 +18,7 @@ The file should be created as `dist/dist.zip`.
 
 ## Deploy the function
 
-You can either login to AWS console to upload the zip file after definint the function or simply upload using aws-cli.
+You can either login to AWS console to upload the zip file after creating the function definition or simply upload using aws-cli.
 ```
 $ aws lambda update-function-code --function-name ${LAMBDA_FUNCTION_NAME} --zip-file fileb://dist/dist.zip`
 ```
