@@ -17,7 +17,7 @@ $ make build
 The file should be created as `dist/dist.zip`.
 
 ## Deploy the function
-Create a new Lambda function, if you haven't already. Call it something like `grpc-ecs-service-appmesh-deploy`
+Create a new Lambda function, if you haven't already. Call it something like `grpc-ecs-service-appmesh-deploy`.
 You can either login to AWS console to upload the zip or simply upload using aws-cli.
 ```
 $ aws lambda update-function-code --function-name grpc-ecs-service-appmesh-deploy --zip-file fileb://dist/dist.zip`
