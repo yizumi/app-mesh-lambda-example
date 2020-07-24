@@ -43,11 +43,6 @@ export const handler = async (event:CodePipelineEvent):Promise<void> => {
         }
 
         const props = userParamsToProps(userParams);
-        if (!props) {
-            throw Error('Argument Error: ');
-        }
-
-        console.info(`Starting the deploy '${props.key}'`);
         const service = new AppMeshGrpcService(props);
         await service.deploy();
         await codepipeline.putJobSuccessResult({ jobId: job.id }).promise();
