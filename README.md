@@ -2,13 +2,36 @@
 
 This is a Lambda implementation of AppMesh/ECS/Envoy service deploy
 
-# Prerequisites
+# Setup Instructions
 
-## Invoking the function from CodePipeline
+## Clone and Build
+
+First, clone the code and build the function.
+
+```
+$ git clone git@github.com:/yizumi/app-mesh-lambda-example
+$ yarn install
+$ make build
+```
+
+The file should be created as `dist/dist.zip`.
+
+## Deploy the function
+
+You can either login to AWS console to upload the zip file after definint the function or simply upload using aws-cli.
+```
+$ aws lambda update-function-code --function-name ${LAMBDA_FUNCTION_NAME} --zip-file fileb://dist/dist.zip`
+```
+
+> :warning: **Give the lambda function enough time to run!**
+> It takes some time to create the new App Mesh Virtual Node, create a new ECS Task Definition that hooks to the new Vitual Node, 
+> wait for the service stabilize, then finally changing the routing. Give the function enough timeframe (approx 5min) before it times-out.
+
+## Setting up the CodePipeline Job
 This lambda function is meant to be invoked by a CodePipeline job.
 When calling the function, you need to pass a JSON string containing the information about the service (e.g. App Mesh resources, Cloud Map and ECS Service resources, etc.) as `UserParameters`. This JSON needs to conform with the schema defined in [`src/IAppMeshGrpcServiceProps`](src/IAppMeshGrpcServiceProps.ts).
 
-For example:
+Set the CodePipeline job so that `UserParameters` would appear as follows:
 ```
 {
     "CodePipeline.job": {
