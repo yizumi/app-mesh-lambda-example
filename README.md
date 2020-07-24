@@ -23,39 +23,13 @@ You can either login to AWS console to upload the zip file after definint the fu
 $ aws lambda update-function-code --function-name ${LAMBDA_FUNCTION_NAME} --zip-file fileb://dist/dist.zip`
 ```
 
-> :warning: **Give the lambda function enough time to run!**
+> :warning: **Give the Lambda function enough time to run!**
 > It takes some time to create the new App Mesh Virtual Node, create a new ECS Task Definition that hooks to the new Vitual Node, 
 > wait for the service stabilize, then finally changing the routing. Give the function enough timeframe (approx 5min) before it times-out.
 
-## Setting up the CodePipeline Job
-This lambda function is meant to be invoked by a CodePipeline job.
-When calling the function, you need to pass a JSON string containing the information about the service (e.g. App Mesh resources, Cloud Map and ECS Service resources, etc.) as `UserParameters`. This JSON needs to conform with the schema defined in [`src/IAppMeshGrpcServiceProps`](src/IAppMeshGrpcServiceProps.ts).
-
-Set the CodePipeline job so that `UserParameters` would appear as follows:
-```
-{
-    "CodePipeline.job": {
-        ...
-        "data": {
-            ...
-            "actionConfiguration": {
-                ...
-                "configuration": {
-                    "FunctionName": "grpc-ecs-service-appmesh-deploy",
-                    "UserParameters": "{\"meshName\":\"echo\"...}"
-                } 
-            } 
-        }
-    }
-}
-```
-For more detailed examples of `IAppMeshGrpcServiceProps`, you can refer to [`RuntimeServices.ts`](src/RuntimeServices.ts).
-
-For more details about invocation of Lambda functions from CodePipeline, read it in [AWS Documentation](https://docs.aws.amazon.com/ja_jp/lambda/latest/dg/services-codepipeline.html).
-
 ## AWS Role
 
-Following are the role permissions required to deploy:
+Here's a suggested permission policy that you'd like to apply to the Lambda function execution role:
 ```
 {
     "Version": "2012-10-17",
@@ -135,3 +109,29 @@ Where:
 * `ECS_SERVICE_NAME` - Name of the service as appears in ECS
 * `TASK_IAM_ROLE` - Name of the IAM Role the ECS Service will use to register the task
 * `TASK_EXECUTION_IAM_ROLE` - Name of the IAM Role the ECS Service will use to execute the task
+
+## Setting up the CodePipeline Job
+This Lambda function is meant to be invoked by a CodePipeline job.
+When calling the function, you need to pass a JSON string containing the information about the service (e.g. App Mesh resources, Cloud Map and ECS Service resources, etc.) as `UserParameters`. This JSON needs to conform with the schema defined in [`src/IAppMeshGrpcServiceProps`](src/IAppMeshGrpcServiceProps.ts).
+
+Set the CodePipeline job so that `UserParameters` would appear as follows:
+```
+{
+    "CodePipeline.job": {
+        ...
+        "data": {
+            ...
+            "actionConfiguration": {
+                ...
+                "configuration": {
+                    "FunctionName": "grpc-ecs-service-appmesh-deploy",
+                    "UserParameters": "{\"meshName\":\"echo\"...}"
+                } 
+            } 
+        }
+    }
+}
+```
+For more detailed examples of `IAppMeshGrpcServiceProps`, you can refer to [`RuntimeServices.ts`](src/RuntimeServices.ts).
+
+For more details about invocation of Lambda functions from CodePipeline, read it in [AWS Documentation](https://docs.aws.amazon.com/ja_jp/lambda/latest/dg/services-codepipeline.html).
