@@ -6,8 +6,7 @@ This is a Lambda implementation of AppMesh/ECS/Envoy service deploy
 
 ## Invoking the function from CodePipeline
 This lambda function is meant to be invoked by a CodePipeline job.
-When calling the function, you need to pass a JSON string containing the information of App Mesh, Cloud Map and ECS Service.
-This needs to conform with the JSON definition defined by `IAppMeshGrpcServiceProps`.
+When calling the function, you need to pass a JSON string containing the information about the service (e.g. App Mesh resources, Cloud Map and ECS Service resources, etc.) as `UserParameters`. This JSON needs to conform with the schema defined in `IAppMeshGrpcServiceProps`.
 
 For example:
 ```
@@ -28,7 +27,7 @@ For example:
 }
 ```
 
-For the full definition of the interficae, please refer to `src/IAppMeshGrpcServiceProps.ts`.
+For the full definition of the interface, please refer to `src/IAppMeshGrpcServiceProps.ts`.
 
 ## AWS Role
 
@@ -101,7 +100,7 @@ Following are the role permissions required to deploy:
 }
 ```
 
-Where...
+Where:
 * `AWS_REGION` - region in which ECS, AppMesh and CloudMap service exist
 * `ACCOUNT_ID` - Account ID of the owner of the ECS, AppMesh and CloudMap resources
 * `MESH_NAME` - The name of the mesh to which the service belongs as found in AppMesh
