@@ -18,7 +18,7 @@ For example:
             "actionConfiguration": {
                 ...
                 "configuration": {
-                    ...
+                    "FunctionName": "grpc-ecs-service-appmesh-deploy",
                     "UserParameters": "{\"meshName\":\"echo\"...}"
                 } 
             } 
@@ -27,6 +27,8 @@ For example:
 }
 ```
 For more detailed examples of `IAppMeshGrpcServiceProps`, you can refer to [`RuntimeServices.ts`](src/RuntimeServices.ts).
+
+For more details about invocation of Lambda functions from CodePipeline, read it in [AWS Documentation](https://docs.aws.amazon.com/ja_jp/lambda/latest/dg/services-codepipeline.html).
 
 ## AWS Role
 
