@@ -1,4 +1,4 @@
-import {IAppMeshGrpcServiceProps} from "./AppMeshGrpcService";
+import {IAppMeshGrpcServiceProps} from "./IAppMeshGrpcServiceProps";
 
 const RuntimeServices: IAppMeshGrpcServiceProps[] = [
     {

@@ -1,7 +1,8 @@
 import AWS from 'aws-sdk';
 import ECS, {
     CreateServiceRequest,
-    CreateTaskSetRequest, DeleteTaskSetRequest,
+    CreateTaskSetRequest,
+    DeleteTaskSetRequest,
     RegisterTaskDefinitionRequest,
     ServiceRegistries,
     TaskDefinition,
@@ -12,38 +13,9 @@ import ServiceDiscovery, {
     ResourceId,
     ServiceSummary
 } from "aws-sdk/clients/servicediscovery";
-import AppMesh, {
-    CreateVirtualNodeInput,
-    VirtualNodeData
-} from "aws-sdk/clients/appmesh";
+import AppMesh, {CreateVirtualNodeInput, VirtualNodeData} from "aws-sdk/clients/appmesh";
 import moment from "moment";
-
-export interface IAppMeshGrpcServiceProps {
-    /** Unique identifier that indicates this set */
-    key: string;
-    /** Name of the AppMesh */
-    meshName: string;
-    /** Name of the namespace as registered in CloudMap */
-    namespaceName: string;
-    /** Name of the service as registered in CloudMap */
-    serviceName: string;
-    /** Name of the service as appears in ECS */
-    ecsServiceName: string;
-    /** Port Number to which the gRPC listens */
-    port: number;
-    /** Name of the virtual router as found in AppMesh */
-    virtualRouterName: string;
-    /** Name of the route as found in AppMesh */
-    routeName: string;
-    /** Name of the ECS Cluster the tasks and services run */
-    clusterName: string;
-    /** Names of private subnets to which this service will be deployed when running on ECS */
-    privateSubnets: string[];
-    /** Names of security groups to which this service will be running with on ECS */
-    securityGroups: string[];
-    /** Name of the task definition on ECS */
-    taskDefinitionName: string;
-}
+import {IAppMeshGrpcServiceProps} from "./IAppMeshGrpcServiceProps";
 
 async function delay(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));

@@ -4,27 +4,39 @@ This is a Lambda implementation of AppMesh/ECS/Envoy service deploy
 
 # Prerequisites
 
+## Invoking the function from CodePipeline
+This lambda function is meant to be invoked by a AWS CodePipeline job.
+When calling the function, you need to pass a JSON string containing the information of App Mesh, Cloud Map and ECS Service.
+This needs to conform with the JSON definition defined by `IAppMeshGrpcServiceProps`.
+
+For example:
+```
+{
+    "CodePipeline.job": {
+        ...
+        "data": {
+            ...
+            "actionConfiguration": {
+                ...
+                "configuration": {
+                    ...
+                    "UserParameters": "{\"meshName\":\"echo\"...}"
+                } 
+            } 
+        }
+    }
+}
+```
+
+For the full definition of the interficae, please refer to `src/IAppMeshGrpcServiceProps.ts`.
+
 ## AWS Role
 
-Following roles are required:
+Following are the role permissions required to deploy:
 ```
 {
     "Version": "2012-10-17",
     "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": [
-                "appmesh:CreateVirtualNode",
-                "appmesh:UpdateRoute",
-                "appmesh:DescribeRoute",
-                "appmesh:DeleteVirtualNode"
-            ],
-            "Resource": [
-                "arn:aws:appmesh:ap-northeast-1:373656256964:mesh/echo*/virtualRouter/virtual-router/route/route",
-                "arn:aws:appmesh:ap-northeast-1:373656256964:mesh/echo*/virtualNode/echo_server*",
-                "arn:aws:appmesh:ap-northeast-1:373656256964:mesh/echo*/virtualService/echo_server"
-            ]
-        },
         {
             "Effect": "Allow",
             "Action": [
@@ -42,11 +54,25 @@ Following roles are required:
         },
         {
             "Effect": "Allow",
+            "Action": [
+                "appmesh:CreateVirtualNode",
+                "appmesh:UpdateRoute",
+                "appmesh:DescribeRoute",
+                "appmesh:DeleteVirtualNode"
+            ],
+            "Resource": [
+                "arn:aws:appmesh:${AWS_REGION}:${ACCOUNT_ID}:mesh/${MESH_NAME}/virtualRouter/${VIRTUAL_ROUTER_NAME}/route/${ROUTE_NAME}",
+                "arn:aws:appmesh:${AWS_REGION}:${ACCOUNT_ID}:mesh/${MESH_NAME}/virtualNode/${SERVICE_NAME}-*",
+                "arn:aws:appmesh:${AWS_REGION}:${ACCOUNT_ID}:mesh/${MESH_NAME}/virtualService/${VIRTUAL_SERVICE_NAME}"
+            ]
+        },
+        {
+            "Effect": "Allow",
             "Action": "ecs:ListTasks",
             "Resource": "*",
             "Condition": {
                 "ArnEquals": {
-                    "ecs:cluster": "arn:aws:ecs:ap-northeast-1:373656256964:cluster/echo*"
+                    "ecs:cluster": "arn:aws:ecs:${AWS_REGION}:${ACCOUNT_ID}:cluster/${CLUSTER_NAME}"
                 }
             }
         },
@@ -62,15 +88,27 @@ Following roles are required:
                 "appmesh:ListVirtualNodes"
             ],
             "Resource": [
-                "arn:aws:ecs:ap-northeast-1:373656256964:task-set/echo*/echo_server*/*",
-                "arn:aws:ecs:ap-northeast-1:373656256964:task/*",
-                "arn:aws:ecs:ap-northeast-1:373656256964:container-instance/*",
-                "arn:aws:ecs:ap-northeast-1:373656256964:service/echo*/echo_server",
-                "arn:aws:iam::373656256964:role/echo-qa1-app-TaskIamRole-1AP99XDSOWUMW",
-                "arn:aws:iam::373656256964:role/echo-qa1-app-TaskExecutionIamRole-BL3PANTLKKMS",
-                "arn:aws:appmesh:ap-northeast-1:373656256964:mesh/echo*"
+                "arn:aws:ecs:${AWS_REGION}:${ACCOUNT_ID}:task-set/${CLUSTER_NAME}/${ECS_SERVICE_NAME}/*",
+                "arn:aws:ecs:${AWS_REGION}:${ACCOUNT_ID}:task/*",
+                "arn:aws:ecs:${AWS_REGION}:${ACCOUNT_ID}:container-instance/*",
+                "arn:aws:ecs:${AWS_REGION}:${ACCOUNT_ID}:service/${CLUSTER_NAME}/${ECS_SERVICE_NAME}",
+                "arn:aws:iam::${ACCOUNT_ID}:role/${TASK_IAM_ROLE}",
+                "arn:aws:iam::${ACCOUNT_ID}:role/${TASK_EXECUTION_IAM_ROLE}",
+                "arn:aws:appmesh:${AWS_REGION}:${ACCOUNT_ID}:mesh/${MESH_NAME}"
             ]
         }
     ]
 }
 ```
+
+Where...
+* `AWS_REGION` - region in which ECS, AppMesh and CloudMap service exist
+* `ACCOUNT_ID` - Account ID of the owner of the ECS, AppMesh and CloudMap resources
+* `MESH_NAME` - The name of the mesh to which the service belongs as found in AppMesh
+* `VIRTUAL_ROUTER_NAME` - Name of the virtual router as found in AppMesh
+* `ROUTE_NAME` - Name of the route as found in AppMesh
+* `SERVICE_NAME` - Name of the service as registered in CloudMap
+* `CLUSTER_NAME` - Name of the ECS cluster
+* `ECS_SERVICE_NAME` - Name of the service as appears in ECS
+* `TASK_IAM_ROLE` - Name of the IAM Role the ECS Service will use to register the task
+* `TASK_EXECUTION_IAM_ROLE` - Name of the IAM Role the ECS Service will use to execute the task

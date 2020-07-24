@@ -2,11 +2,30 @@ import AppMeshGrpcService from "./AppMeshGrpcService";
 import RuntimeServices from './RuntimeServices';
 import CodePipeline, {Job} from "aws-sdk/clients/codepipeline";
 import AWS from "aws-sdk";
+import {IAppMeshGrpcServiceProps} from "./IAppMeshGrpcServiceProps";
 
 const codepipeline: CodePipeline = new AWS.CodePipeline();
 
 interface CodePipelineEvent {
     'CodePipeline.job': Job,
+}
+
+function userParamsToProps(userParams:string): IAppMeshGrpcServiceProps {
+    const serviceKey = userParams?.match(/SERVICE_KEY=(([^:]+):(.+))$/);
+    if (serviceKey && serviceKey[1]) {
+        const props = RuntimeServices.find(k => k.key == serviceKey[1]);
+        if (!props) {
+            throw Error(`Argument Error: Service Key '${serviceKey[1]}' not found. ` +
+                `Available options are: [${RuntimeServices.map(s => s.key).join(',')}]`);
+        }
+        return props;
+    } else {
+        try {
+            return JSON.parse(userParams) as IAppMeshGrpcServiceProps;
+        } catch(e) {
+            throw Error(`Error while parsing JSON string: '${JSON.stringify({ error: e, userParameters: userParams})}'`);
+        }
+    }
 }
 
 export const handler = async (event:CodePipelineEvent):Promise<void> => {
@@ -18,16 +37,14 @@ export const handler = async (event:CodePipelineEvent):Promise<void> => {
     try {
         console.info('Event', JSON.stringify(event));
         const userParams:string|undefined = job.data?.actionConfiguration?.configuration?.['UserParameters'];
-        const serviceKey = userParams?.match(/SERVICE_KEY=(([^:]+):(.+))$/);
-        if (!serviceKey) {
-            throw Error('Argument Error: UserParameters does not contain SERVICE_KEY or has an invalid format. ' +
-                'Make sure you define UserParameters as "SERVICE_KEY=service_name:env"');
+        if (!userParams) {
+            throw Error('Argument Error: Missing UserParameters. Check the CodePipeline action settings. ' +
+                'Make sure you have User Parameters set that follows `IAppMeshGrpcServiceProps` interface');
         }
 
-        const props = RuntimeServices.find(k => k.key == serviceKey[1]);
+        const props = userParamsToProps(userParams);
         if (!props) {
-            throw Error(`Argument Error: Service Key '${serviceKey[1]}' not found. ` +
-                `Available options are: [${RuntimeServices.map(s => s.key).join(',')}]`);
+            throw Error('Argument Error: ');
         }
 
         console.info(`Starting the deploy '${props.key}'`);
