@@ -1,9 +1,8 @@
-import AWS from 'aws-sdk';
+import AWS, { SSM } from 'aws-sdk';
 import ECS, {
     CreateServiceRequest,
     CreateTaskSetRequest,
     DeleteTaskSetRequest,
-    RegisterTaskDefinitionRequest,
     ServiceRegistries,
     TaskDefinition,
     UpdateServicePrimaryTaskSetRequest
@@ -26,11 +25,13 @@ export default class AppMeshGrpcService {
     private ecs: ECS;
     private sd: ServiceDiscovery;
     private readonly props: IAppMeshGrpcServiceProps;
+    private ssm: SSM;
 
     constructor(props: IAppMeshGrpcServiceProps) {
         this.appmesh = new AWS.AppMesh();
         this.ecs = new AWS.ECS();
         this.sd = new AWS.ServiceDiscovery();
+        this.ssm = new AWS.SSM();
         this.props = props;
     }
 
@@ -39,7 +40,7 @@ export default class AppMeshGrpcService {
         await this.deleteUnusedResources();
         await this.createServiceIfMissing();
         const virtualNode = await this.createVirtualNode();
-        await this.registerNewTask(virtualNode);
+        await this.putVirtualNodeNameOnSSM(virtualNode);
         await this.createTaskSet(virtualNode);
         await this.waitForEcsServices();
         await this.switchTrafficRoute(virtualNode);
@@ -115,35 +116,19 @@ export default class AppMeshGrpcService {
         return res.virtualNode;
     }
 
-    private async registerNewTask(virtualNode: VirtualNodeData): Promise<ECS.TaskDefinition> {
+    private async putVirtualNodeNameOnSSM(virtualNode: VirtualNodeData): Promise<void> {
         const {meshName} = this.props;
         const {virtualNodeName} = virtualNode;
 
-        const taskDefArn = await this.getTaskDefArn();
-        const taskDefinition = await this.getTaskDefinition(taskDefArn);
-
-        taskDefinition.containerDefinitions?.forEach(def => {
-            def.environment?.forEach(env => {
-                if (env.name == 'APPMESH_VIRTUAL_NODE_NAME') {
-                    env.value = `mesh/${meshName}/virtualNode/${virtualNodeName}`;
-                }
-            });
-        });
-
-        delete (taskDefinition.status);
-        delete (taskDefinition.compatibilities);
-        delete (taskDefinition.taskDefinitionArn);
-        delete (taskDefinition.requiresAttributes);
-        delete (taskDefinition.revision);
-
-        const req: RegisterTaskDefinitionRequest = {...taskDefinition} as RegisterTaskDefinitionRequest;
-        console.info('Registering new task definition', JSON.stringify(req));
-        const {taskDefinition: def} = await this.ecs.registerTaskDefinition(req).promise();
-        if (!def) {
-            throw Error('Error while registering new task definition');
-        }
-        console.info('Successfully registered new task definition', JSON.stringify(def));
-        return def;
+        await this.ssm.putParameter({
+            Name: this.props.virtualNodeSSMParameterName,
+            Description: `Set by AppMeshGrpcService on ${moment().format('YYYY-MM-DD hh:mm:ss')}`,
+            Tier: 'Standard',
+            Type: 'String',
+            DataType: 'text',
+            Value: `mesh/${meshName}/virtualNode/${virtualNodeName}`,
+            Overwrite: true,
+        }).promise();
     }
 
     private async createTaskSet(virtualNode: AppMesh.VirtualNodeData): Promise<ECS.TaskSet | undefined> {
@@ -315,14 +300,6 @@ export default class AppMeshGrpcService {
             throw Error(`Missing Task Def with name '${taskDefinitionName}' in ECS. Make sure you have this defined.`);
         }
         return taskDefArn[taskDefArn.length - 1];
-    }
-
-    private async getTaskDefinition(taskDefArn: string): Promise<TaskDefinition> {
-        const {taskDefinition} = await this.ecs.describeTaskDefinition({taskDefinition: taskDefArn}).promise();
-        if (!taskDefinition?.containerDefinitions) {
-            throw Error(`Missing container definition for '${taskDefArn}'.`);
-        }
-        return taskDefinition;
     }
 
     private async getCmapService(): Promise<ServiceSummary> {

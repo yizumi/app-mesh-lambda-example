@@ -1,6 +1,6 @@
 import AppMeshGrpcService from "./AppMeshGrpcService";
 import RuntimeServices from './RuntimeServices';
-import CodePipeline, {Job} from "aws-sdk/clients/codepipeline";
+import CodePipeline, { FailureDetails, Job } from 'aws-sdk/clients/codepipeline';
 import AWS from "aws-sdk";
 import {IAppMeshGrpcServiceProps} from "./IAppMeshGrpcServiceProps";
 
@@ -48,6 +48,10 @@ export const handler = async (event:CodePipelineEvent):Promise<void> => {
         await codepipeline.putJobSuccessResult({ jobId: job.id }).promise();
     } catch(e) {
         console.error('Error while deploying', JSON.stringify(e));
-        await codepipeline.putJobFailureResult({ jobId: job.id, failureDetails: e }).promise();
+        const failureDetails: FailureDetails = {
+            type: 'JobFailed',
+            message: e.toString(),
+        }
+        await codepipeline.putJobFailureResult({ jobId: job.id, failureDetails }).promise();
     }
 };

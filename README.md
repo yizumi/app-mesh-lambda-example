@@ -79,6 +79,7 @@ Following are the role permissions required to deploy:
         {
             "Effect": "Allow",
             "Action": [
+                "ssm:PutParameter",
                 "iam:PassRole",
                 "ecs:CreateService",
                 "ecs:DeleteTaskSet",
@@ -88,6 +89,7 @@ Following are the role permissions required to deploy:
                 "appmesh:ListVirtualNodes"
             ],
             "Resource": [
+                "arn:aws:ssm:${AWS_REGION}:${ACCOUNT_ID}:parameter/${CLUSTER_NAME}/*",
                 "arn:aws:ecs:${AWS_REGION}:${ACCOUNT_ID}:task-set/${CLUSTER_NAME}/${ECS_SERVICE_NAME}/*",
                 "arn:aws:ecs:${AWS_REGION}:${ACCOUNT_ID}:task/*",
                 "arn:aws:ecs:${AWS_REGION}:${ACCOUNT_ID}:container-instance/*",
@@ -96,6 +98,11 @@ Following are the role permissions required to deploy:
                 "arn:aws:iam::${ACCOUNT_ID}:role/${TASK_EXECUTION_IAM_ROLE}",
                 "arn:aws:appmesh:${AWS_REGION}:${ACCOUNT_ID}:mesh/${MESH_NAME}"
             ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": "ssm:PutParameter",
+            "Resource": "arn:aws:ss"
         }
     ]
 }

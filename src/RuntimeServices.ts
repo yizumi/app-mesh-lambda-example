@@ -14,6 +14,7 @@ const RuntimeServices: IAppMeshGrpcServiceProps[] = [
         port: 8080,
         virtualRouterName: 'virtual-router',
         routeName: 'route',
+        virtualNodeSSMParameterName: '/echo/params/APPMESH_VIRTUAL_NODE_NAME',
     },
     {
         key: 'echo_server:qa1',
@@ -28,6 +29,7 @@ const RuntimeServices: IAppMeshGrpcServiceProps[] = [
         port: 8080,
         virtualRouterName: 'virtual-router',
         routeName: 'route',
+        virtualNodeSSMParameterName: '/echo_qa1/params/APPMESH_VIRTUAL_NODE_NAME',
     },
 ];
 

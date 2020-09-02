@@ -26,4 +26,6 @@ export interface IAppMeshGrpcServiceProps {
     privateSubnets: string[];
     /** Names of security groups to which this service will be running with on ECS */
     securityGroups: string[];
+    /** The SSM parameter name which contains the value for APPMESH_VIRTUAL_NODE for envoy */
+    virtualNodeSSMParameterName: string;
 }
