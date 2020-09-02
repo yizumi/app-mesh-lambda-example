@@ -8,4 +8,4 @@ build: eslint
 	cd dist && zip -r -q dist.zip ./
 
 deploy: build
-	aws lambda update-function-code --function-name hacobelltmsdev-grpc-ecs-service-appmesh-deploy --zip-file fileb://dist/dist.zip
+	aws lambda update-function-code --function-name grpc-ecs-service-appmesh-deploy --zip-file fileb://dist/dist.zip
