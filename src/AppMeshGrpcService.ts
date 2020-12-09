@@ -117,7 +117,7 @@ export default class AppMeshGrpcService {
     }
 
     private async putVirtualNodeNameOnSSM(virtualNode: VirtualNodeData): Promise<void> {
-        const {meshName} = this.props;
+        const {meshName, virtualNodeSSMParameterName } = this.props;
         const {virtualNodeName} = virtualNode;
 
         await this.ssm.putParameter({
@@ -151,7 +151,7 @@ export default class AppMeshGrpcService {
                 awsvpcConfiguration: {
                     subnets: privateSubnets,
                     securityGroups: securityGroups,
-                    assignPublicIp: 'DISABLED',
+                    assignPublicIp: 'ENABLED',
                 }
             }
         };
@@ -200,9 +200,14 @@ export default class AppMeshGrpcService {
             const req: GetInstancesHealthStatusRequest = {
                 ServiceId: cmapService.Id as ResourceId,
             };
-            const {Status: status} = await this.sd.getInstancesHealthStatus(req).promise();
-            console.info('Status', status);
-            return status ? Object.keys(status)?.filter(k => status[k] != 'HEALTHY').length || 0 : 0;
+            try {
+                const {Status: status} = await this.sd.getInstancesHealthStatus(req).promise();
+                console.info('Status', status);
+                return status ? Object.keys(status)?.filter(k => status[k] != 'HEALTHY').length || 0 : 0;
+            } catch(e) {
+                console.warn('Could not query health status for cmap instance', JSON.stringify(req));
+                return 0;
+            }
         };
 
         while (await countUnhealthyTasks() == 0) {
@@ -251,7 +256,7 @@ export default class AppMeshGrpcService {
     private async deleteUnusedResources() {
         console.info('Deleting unused resource');
         // Find which node is used
-        const { meshName, virtualRouterName, routeName, serviceName, clusterName } = this.props;
+        const { meshName, virtualRouterName, routeName, serviceName, ecsServiceName, clusterName } = this.props;
 
         // List all related virtual nodes
         const { virtualNodes } = await this.appmesh.listVirtualNodes({ meshName}).promise();
@@ -271,7 +276,7 @@ export default class AppMeshGrpcService {
         console.info('Unused virtual nodes', JSON.stringify(unusedVirtualNodes));
 
         // For each taskSet in service, see if it uses one of the unusedVirtualNodes, if so, we can delete task set
-        const { services } = await this.ecs.describeServices({cluster: clusterName, services: [serviceName]}).promise();
+        const { services } = await this.ecs.describeServices({cluster: clusterName, services: [ecsServiceName]}).promise();
         const taskSets = services?.[0]?.taskSets;
         if (!taskSets) {
             console.warn('Missing taskSets');

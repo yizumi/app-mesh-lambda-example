@@ -143,7 +143,7 @@ Set the CodePipeline job so that `UserParameters` would appear as follows:
 `UsersParameters` need to contain a string that conforms with the schema defined in [`src/IAppMeshGrpcServiceProps`](src/IAppMeshGrpcServiceProps.ts).
 Here's an example of `UserParameters`:
 ```
-{"key":"echo_server:qa1","meshName":"echo-qa1-mesh","clusterName":"echo-qa1","namespaceName":"echo-qa1.local","serviceName":"echo_server","ecsServiceName":"echo_server","taskDefinitionName":"echo-qa1-echo-server","privateSubnets":["subnet-0123456789abcdef0","subnet-0123456789abcdef1"],"securityGroups":["sg-0123456789abcdef0"],"port":8080,"virtualRouterName":"echo-server-router","routeName":"echo-server-route"}
+{"key":"echo_server:qa1","meshName":"echo-qa1-mesh","clusterName":"echo-qa1","namespaceName":"echo-qa1.local","serviceName":"echo_server","ecsServiceName":"echo_server","taskDefinitionName":"echo-qa1-echo-server","privateSubnets":["subnet-0123456789abcdef0","subnet-0123456789abcdef1"],"securityGroups":["sg-0123456789abcdef0"],"port":8080,"virtualRouterName":"echo-server-router","routeName":"echo-server-route","virtualNodeSSMParameterName":""}
 ```
 For more detailed examples of `IAppMeshGrpcServiceProps`, you can refer to [`RuntimeServices.ts`](src/RuntimeServices.ts).
 
